@@ -108,38 +108,26 @@ class TasksViewModel: ObservableObject {
     
     func updateTask(_ task: Task, title: String,  description: String?,
                     imageData: Data?,date: Date, time: Date?, difficulty: Int16, hasReminder: Bool) {
-        // Сохраняем предыдущее состояние напоминания,
-        // чтобы понять, нужно ли создавать/удалять уведомление
         let oldReminder = task.hasReminder
-        // Обновление основных полей задачи
         task.title = title
         task.taskDescription = description
         task.imageData = imageData
         task.date = date
         task.time = time
         task.difficulty = difficulty
-        // Напоминание возможно только при указанном пользователем времени
         task.hasReminder = hasReminder && (time != nil)
-        
-        // Управление локальными уведомлениями
+
         if oldReminder != task.hasReminder {
-            // Состояние напоминания изменилось
             if task.hasReminder {
-                // Планирование нового уведомления
                 NotificationService.shared.scheduleNotification(for: task)
             } else {
-                // Удаление существующего уведомления
                 NotificationService.shared.removeNotification(for: task)
             }
         } else if task.hasReminder {
-            // Параметры задачи изменились, но напоминание осталось — обновляем его
             NotificationService.shared.updateNotification(for: task)
         }
-        // Сохранение изменений в базе данных
         manager.saveContext()
-        // Обновление виджета с задачами
         updateWidget()
-        // Обновление интерфейса
         DispatchQueue.main.async {
             self.refreshManager.refreshTasks()
             self.objectWillChange.send()
@@ -153,20 +141,14 @@ class TasksViewModel: ObservableObject {
       }
       
     func toggleTaskCompletion(_ task: Task) {
-        // Анимация изменения состояния задачи
         withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-            // Переключение статуса выполнения задачи
             task.isCompleted.toggle()
-            // Если задача связана с шагом цели — обновляем шаг
             if let step = task.goalStep {
                 step.isCompleted = task.isCompleted
                 step.completedAt = task.isCompleted ? Date() : nil
             }
-            // Сохранение изменений
             manager.saveContext()
-            // Обновление виджета
             updateWidget()
-            // Обновление задач и целей в интерфейсе
             refreshManager.refreshTasks()
             refreshManager.refreshGoals()
         }

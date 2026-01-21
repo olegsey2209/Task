@@ -5,6 +5,7 @@
 //  Created by Лия Форрат on 13.12.25.
 //
 
+
 import Foundation
 import SwiftUI
 
@@ -15,12 +16,14 @@ struct GoalStepRow: View {
     
     @State private var showingDeleteAlert = false
     @State private var showingEditSheet = false
+    @State private var showingDeleteTaskAlert = false 
     
     @State private var editedTitle = ""
     @State private var editedDescription = ""
     
     var body: some View {
         HStack(spacing: 12) {
+
             Button(action: {
                 withAnimation(.spring()) {
                     viewModel.toggleStepCompletion(step)
@@ -37,26 +40,33 @@ struct GoalStepRow: View {
             
             Spacer()
             
-            if step.task == nil {
-                Menu {
+  
+            Menu {
+                if step.task == nil {
                     Button(action: onCreateTask) {
                         Label("Добавить на день", systemImage: "calendar.badge.plus")
                     }
-                    
-                    Button(action: { showingEditSheet = true }) {
-                        Label("Редактировать", systemImage: "pencil")
+                } else {
+
+                    Button(action: {
+
+                        showingDeleteTaskAlert = true
+                    }) {
+                        Label("Удалить задачу дня", systemImage: "calendar.badge.minus")
                     }
-                    
-                    Button(role: .destructive, action: { showingDeleteAlert = true }) {
-                        Label("Удалить", systemImage: "trash")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .foregroundColor(.gray)
                 }
-            } else {
-                Image(systemName: "calendar.circle.fill")
-                    .foregroundColor(.blue)
+                
+
+                Button(action: { showingEditSheet = true }) {
+                    Label("Редактировать шаг", systemImage: "pencil")
+                }
+
+                Button(role: .destructive, action: { showingDeleteAlert = true }) {
+                    Label("Удалить шаг", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: step.task == nil ? "ellipsis.circle" : "calendar.circle.fill")
+                    .foregroundColor(step.task == nil ? .gray : .blue)
             }
         }
         .padding(.vertical, 8)
@@ -65,12 +75,25 @@ struct GoalStepRow: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color(.secondarySystemBackground))
         )
+
         .alert("Удалить шаг?", isPresented: $showingDeleteAlert) {
             Button("Отмена", role: .cancel) { }
             Button("Удалить", role: .destructive) {
                 viewModel.deleteStep(step)
             }
+        }message: {
+            Text("Задача на день останется, но шаг цели удалится.")
         }
+
+        .alert("Удалить задачу дня?", isPresented: $showingDeleteTaskAlert) {
+            Button("Отмена", role: .cancel) { }
+            Button("Удалить", role: .destructive) {
+                deleteTaskFromStep()
+            }
+        } message: {
+            Text("Задача будет удалена из дня, но шаг цели останется.")
+        }
+
         .sheet(isPresented: $showingEditSheet) {
             NavigationStack {
                 Form {
@@ -105,5 +128,10 @@ struct GoalStepRow: View {
             }
             .presentationDetents([.medium])
         }
+    }
+    
+
+    private func deleteTaskFromStep() {
+        viewModel.deleteTaskFromStep(step)
     }
 }

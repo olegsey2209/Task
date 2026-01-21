@@ -5,6 +5,11 @@
 //  Created by Лия Форрат on 13.12.25.
 //
 
+//
+//  StatisticsViewModel.swift
+//  TaskPlanner
+//
+
 import Foundation
 import SwiftUI
 import CoreData
@@ -15,7 +20,7 @@ class StatisticsViewModel: ObservableObject {
     @Published var statistics = StatisticsData()
     @Published var isLoading = false
     
-    private let manager = CoreDataManager.shared
+    private let statisticsService = StatisticsService.shared
     private let refreshManager = RefreshManager.shared
     private var currentUser: User?
     private var cancellables = Set<AnyCancellable>()
@@ -45,7 +50,7 @@ class StatisticsViewModel: ObservableObject {
     }
     
     private func loadCurrentUser() {
-        currentUser = manager.getCurrentUser()
+        currentUser = CoreDataManager.shared.getCurrentUser()
     }
     
     func loadStatistics() {
@@ -54,21 +59,16 @@ class StatisticsViewModel: ObservableObject {
         isLoading = true
 
         DispatchQueue.main.async {
-            self.statistics = StatisticsData()
+            self.statistics.totalTasks = self.statisticsService.getCompletedTasksCount(for: self.selectedPeriod, user: user)
+            self.statistics.difficultyDistribution = self.statisticsService.getTaskCountByDifficulty(for: self.selectedPeriod, user: user)
+            self.statistics.goalProgress = self.statisticsService.getGoalProgress(for: user)
 
-            self.statistics.totalTasks = self.manager.getCompletedTasksCount(for: self.selectedPeriod, user: user)
+            self.statistics.completedGoals = self.statistics.goalProgress.filter { $0.progress == 1.0 }.count
+            self.statistics.totalGoals = self.statistics.goalProgress.count
 
-            let difficultyCounts = self.manager.getTaskCountByDifficulty(for: self.selectedPeriod, user: user)
-            self.statistics.difficultyDistribution = difficultyCounts
-
-            let goalProgress = self.manager.getGoalProgress(for: user)
-            self.statistics.goalProgress = goalProgress
-            self.statistics.completedGoals = goalProgress.filter { $0.progress == 1.0 }.count
-            self.statistics.totalGoals = goalProgress.count
-            
-            let totalTasks = difficultyCounts.values.reduce(0, +)
+            let totalTasks = self.statistics.difficultyDistribution.values.reduce(0, +)
             if totalTasks > 0 {
-                let weightedSum = difficultyCounts.reduce(0) { $0 + Double($1.key) * Double($1.value) }
+                let weightedSum = self.statistics.difficultyDistribution.reduce(0) { $0 + Double($1.key) * Double($1.value) }
                 self.statistics.averageDifficulty = weightedSum / Double(totalTasks)
             }
             
@@ -81,6 +81,7 @@ class StatisticsViewModel: ObservableObject {
     }
 }
 
+
 struct StatisticsData {
     var totalTasks = 0
     var completedGoals = 0
@@ -88,4 +89,8 @@ struct StatisticsData {
     var averageDifficulty: Double = 0
     var difficultyDistribution: [Int16: Int] = [:]
     var goalProgress: [(goal: Goal, progress: Double)] = []
+}
+
+enum StatisticsPeriod {
+    case day, month, year
 }

@@ -285,11 +285,12 @@
 				};
 			};
 			buildConfigurationList = 1DF5972C2EED65B500A9C557 /* Build configuration list for PBXProject "TaskPlanner" */;
-			developmentRegion = en;
+			developmentRegion = ru;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
+				ru,
 			);
 			mainGroup = 1DF597282EED65B500A9C557;
 			minimizedProjectReferenceProxies = 1;

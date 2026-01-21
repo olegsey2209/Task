@@ -164,8 +164,33 @@ struct ChangePasswordView: View {
                 Section("Новый пароль") {
                     SecureField("Введите новый пароль", text: $newPassword)
                     SecureField("Повторите новый пароль", text: $confirmPassword)
+
+                    if !newPassword.isEmpty {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Требования к паролю:")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.gray)
+                                .padding(.bottom, 2)
+                            
+                            RequirementRow(met: newPassword.count >= 8, text: "Минимум 8 символов")
+                            RequirementRow(met: newPassword.rangeOfCharacter(from: .decimalDigits) != nil, text: "Хотя бы одна цифра (0-9)")
+                            RequirementRow(met: newPassword.rangeOfCharacter(from: .lowercaseLetters) != nil, text: "Хотя бы одна строчная буква (a-z)")
+                            RequirementRow(met: newPassword.rangeOfCharacter(from: .uppercaseLetters) != nil, text: "Хотя бы одна заглавная буква (A-Z)")
+                            
+                            let specialChars = CharacterSet(charactersIn: "!@#$%^&*()_+-=[]{}|;:,.<>?")
+                            RequirementRow(met: newPassword.rangeOfCharacter(from: specialChars) != nil, text: "Хотя бы один спецсимвол (!@#$%^&*)")
+                            RequirementRow(met: !newPassword.contains(" "), text: "Без пробелов")
+                        }
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(.secondarySystemBackground).opacity(0.5))
+                        )
+                    }
                 }
-                
+
                 if !errorMessage.isEmpty {
                     Section {
                         Text(errorMessage)
@@ -202,10 +227,17 @@ struct ChangePasswordView: View {
     }
     
     private func changePassword() {
+
+        errorMessage = ""
+        successMessage = ""
+
         guard let user = viewModel.manager.getCurrentUser() else {
             errorMessage = "Пользователь не найден"
             return
         }
+
+        print("Текущий пароль пользователя: \(user.password ?? "nil")")
+        print("Введённый текущий пароль: \(currentPassword)")
 
         guard user.password == currentPassword else {
             errorMessage = "Неверный текущий пароль"
@@ -217,18 +249,50 @@ struct ChangePasswordView: View {
             return
         }
 
-        guard newPassword.count >= 4 else {
-            errorMessage = "Пароль слишком короткий"
+        let validation = PasswordValidator.isValidPassword(newPassword)
+        guard validation.isValid else {
+            errorMessage = validation.message
             return
         }
 
-        user.password = newPassword
-        viewModel.manager.saveContext()
+        isLoading = true
 
-        successMessage = "Пароль изменён"
+        user.password = newPassword
+
+        do {
+            try viewModel.manager.viewContext.save()
+            print("Пароль изменён на: \(newPassword)")
+            
+            successMessage = "Пароль успешно изменён"
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                dismiss()
+            }
+        } catch {
+            print("Ошибка сохранения пароля: \(error)")
+            errorMessage = "Ошибка при сохранении пароля"
+        }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            dismiss()
+        isLoading = false
+    }
+    struct RequirementRow: View {
+        let met: Bool
+        let text: String
+        
+        var body: some View {
+            HStack(spacing: 8) {
+                Image(systemName: met ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .foregroundColor(met ? .green : .red)
+                    .font(.caption2)
+                
+                Text(text)
+                    .font(.caption)
+                    .foregroundColor(met ? .primary : .red)
+                    .fontWeight(met ? .regular : .medium)
+                
+                Spacer()
+            }
+            .padding(.vertical, 2)
         }
     }
 }

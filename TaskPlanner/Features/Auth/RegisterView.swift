@@ -46,7 +46,9 @@ struct RegisterView: View {
                     .textFieldStyle(ModernTextFieldStyle())
                     .submitLabel(.next)
                     .onSubmit {
-                        focusedField = 2
+                        DispatchQueue.main.async { 
+                                   focusedField = 2
+                               }
                     }
                 
                 SecureField("Повторите пароль", text: $confirmPassword)
@@ -58,7 +60,32 @@ struct RegisterView: View {
                     }
             }
             .padding(.horizontal, 40)
-            
+            if !password.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Требования к паролю:")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.gray)
+                        .padding(.bottom, 2)
+                    
+                    RequirementRow(met: password.count >= 8, text: "Минимум 8 символов")
+                    RequirementRow(met: password.rangeOfCharacter(from: .decimalDigits) != nil, text: "Хотя бы одна цифра (0-9)")
+                    RequirementRow(met: password.rangeOfCharacter(from: .lowercaseLetters) != nil, text: "Хотя бы одна строчная буква (a-z)")
+                    RequirementRow(met: password.rangeOfCharacter(from: .uppercaseLetters) != nil, text: "Хотя бы одна заглавная буква (A-Z)")
+                    
+                    let specialChars = CharacterSet(charactersIn: "!@#$%^&*()_+-=[]{}|;:,.<>?")
+                    RequirementRow(met: password.rangeOfCharacter(from: specialChars) != nil, text: "Хотя бы один спецсимвол (!@#$%^&*)")
+                    RequirementRow(met: !password.contains(" "), text: "Без пробелов")
+                }
+                .padding(.vertical, 10)
+                .padding(.horizontal, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(.secondarySystemBackground).opacity(0.5))
+                )
+                .padding(.horizontal, 40)
+                .padding(.top, 8)
+            }
       
             if !errorMessage.isEmpty {
                 Text(errorMessage)
@@ -105,28 +132,29 @@ struct RegisterView: View {
     }
     
     private func register() {
+
         guard !username.isEmpty, !password.isEmpty, !confirmPassword.isEmpty else {
             errorMessage = "Заполните все поля"
             return
         }
-        
+
         guard password == confirmPassword else {
             errorMessage = "Пароли не совпадают"
             return
         }
-        
-        guard password.count >= 4 else {
-            errorMessage = "Пароль должен содержать минимум 4 символа"
+
+        let validation = PasswordValidator.isValidPassword(password)
+        guard validation.isValid else {
+            errorMessage = validation.message
             return
         }
-        
+
         let manager = CoreDataManager.shared
-        
         guard !manager.userExists(username: username) else {
             errorMessage = "Пользователь с таким именем уже существует"
             return
         }
-        
+
         isLoading = true
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -138,6 +166,26 @@ struct RegisterView: View {
             }
             
             isLoading = false
+        }
+    }
+    struct RequirementRow: View {
+        let met: Bool
+        let text: String
+        
+        var body: some View {
+            HStack(spacing: 8) {
+                Image(systemName: met ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .foregroundColor(met ? .green : .red)
+                    .font(.caption2)
+                
+                Text(text)
+                    .font(.caption)
+                    .foregroundColor(met ? .primary : .red)
+                    .fontWeight(met ? .regular : .medium)
+                
+                Spacer()
+            }
+            .padding(.vertical, 2)
         }
     }
 }

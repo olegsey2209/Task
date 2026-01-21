@@ -69,13 +69,32 @@ class GoalsViewModel: ObservableObject {
     }
     
     func updateStep(_ step: GoalStep, title: String, description: String?) {
+
         manager.updateGoalStep(step, title: title, description: description)
+
+        if let task = step.task {
+            task.title = title
+            task.taskDescription = description
+            manager.saveContext()
+            if task.hasReminder {
+                NotificationService.shared.updateNotification(for: task)
+            }
+        }
+        
         refreshManager.refreshGoals()
+        refreshManager.refreshTasks()
+  
     }
     
     func deleteStep(_ step: GoalStep) {
-        manager.deleteGoalStep(step)
+            let task = step.task
+            step.task = nil
+            task?.goalStep = nil
+            manager.deleteGoalStep(step)
+            manager.saveContext()
+       
         refreshManager.refreshGoals()
+        refreshManager.refreshTasks()
     }
     
     func toggleStepCompletion(_ step: GoalStep) {
@@ -126,10 +145,26 @@ class GoalsViewModel: ObservableObject {
 
         return task
     }
-    
+    func deleteTaskFromStep(_ step: GoalStep) {
+        guard let task = step.task else { return }
+ 
+        if task.hasReminder {
+            NotificationService.shared.removeNotification(for: task)
+        }
+
+        step.task = nil
+        task.goalStep = nil
+
+        CoreDataManager.shared.viewContext.delete(task)
+        CoreDataManager.shared.saveContext()
+
+        refreshManager.refreshTasks()
+        refreshManager.refreshGoals()
+    }
     func getProgress(for goal: Goal) -> Double {
         guard let steps = goal.steps?.array as? [GoalStep] else { return 0 }
         let completedSteps = steps.filter { $0.isCompleted }.count
         return steps.isEmpty ? 0 : Double(completedSteps) / Double(steps.count)
     }
+   
 }
